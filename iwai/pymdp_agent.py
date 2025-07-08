@@ -371,7 +371,7 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
     # qr_local = ServiceID("172.20.0.5", ServiceType.QR, "elastic-workbench-qr-detector-1")
     # cv_local = ServiceID("172.20.0.10", ServiceType.CV, "elastic-workbench-cv-analyzer-1")
     start_time = time.time()
-    df = pd.read_csv("../share/metrics/LGBN.csv")
+    df = pd.read_csv("D:/ADT_AIF/DT_elastic-workbench/share/metrics/LGBN.csv")
 
     env_qr = LGBNTrainingEnv(ServiceType.QR, step_data_quality=QR_DATA_QUALITY_STEP)
     env_qr.reload_lgbn_model(df)
