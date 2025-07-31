@@ -31,7 +31,7 @@ def load_npz_obj_array(filename, save_path):
     values = [data[key] for key in sorted(data.files)]
     return np.array(values, dtype=object)  # ensures it's a proper obj_array
 
-def save_agent_parameters(agent, save_path="../experiments/opodis/saved_agent"):
+def save_agent_parameters(agent, save_path="../experiments/IoT2025/saved_agent"):
     os.makedirs(save_path, exist_ok=True)
 
     # Save A, B, C, D, pA, pB
@@ -348,7 +348,7 @@ class pymdp_Agent(): # ScalingAgent):
                      alpha=alpha,
                      inference_algo='VANILLA', lr_pB=learning_rate, use_param_info_gain=True, use_states_info_gain=True)
 
-    def load_agent_parameters(self, save_path="../experiments/opodis/saved_agent", policy_len=1, lr_pB=1.0):
+    def load_agent_parameters(self, save_path="../experiments/IoT2025/saved_agent", policy_len=1, lr_pB=1.0):
         A = load_npz_obj_array("A.npz", save_path)
         B = load_npz_obj_array("B.npz", save_path)
         C = load_npz_obj_array("C.npz", save_path)
@@ -409,14 +409,14 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
         pymdp_agent = p_agent.generate_agent(policy_length=1, learning_rate=1,
                                              alpha=alpha, action_selection=action_selection)
     else:
-        pymdp_agent = p_agent.load_agent_parameters(save_path="../experiments/opodis/saved_agent", policy_len=1)
+        pymdp_agent = p_agent.load_agent_parameters(save_path="../experiments/IoT2025/saved_agent", policy_len=1)
     print("Agent ready.")
     elapsed = time.time() - start_time
     print(f"Execution time: {elapsed:.4f} seconds")
 
     logged_data = list()
 
-    for steps in range(2):
+    for steps in range(50):
         start_time_loop = time.time()
 
         #print("pymdp_state: ", pymdp_state)
@@ -555,9 +555,9 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
 
 
 
-    save_agent_parameters(pymdp_agent, save_path="D:/ADT_AIF/experiments/opodis/saved_agent")
+    save_agent_parameters(pymdp_agent, save_path="D:/ADT_AIF/experiments/IoT2025/saved_agent")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = f"D:/ADT_AIF/experiments/opodis/{timestamp}_pymdp_service_log.csv"
+    log_path = f"D:/ADT_AIF/experiments/IoT2025/{timestamp}_pymdp_service_log.csv"
     df = pd.DataFrame(logged_data)
     df.to_csv(log_path, index=False, mode='a', header=not os.path.exists(log_path))
 
