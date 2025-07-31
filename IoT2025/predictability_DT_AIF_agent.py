@@ -416,18 +416,15 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
 
     logged_data = list()
 
-    for steps in range(50):
+    for steps in range(2):
         start_time_loop = time.time()
 
         #print("pymdp_state: ", pymdp_state)
 
         a_s = pymdp_agent.infer_states(pymdp_state)
 
-        #print("a_s[0]: ", a_s[0])
-        #print("a_s[4]: ", a_s[4])
-
         elapsed = time.time() - start_time_loop
-        if steps & learning_agent > 0:
+        if steps > 0 & learning_agent > 0:
             pymdp_agent.update_B(a_s)
 
         q_pi, G, G_sub = pymdp_agent.infer_policies()
@@ -452,51 +449,37 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
         pragmatic_value = G_sub["r"][policy_index]  # usually extrinsic value
 
 
-        # --- Predicción del throughput en el siguiente estado ---
+        
+        # Current state 
+        thr_cv = np.argmax(a_s[0])
+        quality_cv = np.argmax(a_s[1])
+        model_size_cv = np.argmax(a_s[2])
+        cores_cv = np.argmax(a_s[3])
 
-        # Estado actual
-        thr_cv_idx = np.argmax(a_s[0])
-        quality_cv_idx = np.argmax(a_s[1])
-        model_size_idx = np.argmax(a_s[2])
-        cores_cv_idx = np.argmax(a_s[3])
+        thr_qr = np.argmax(a_s[4])
+        quality_qr = np.argmax(a_s[5])
+        cores_qr = np.argmax(a_s[6])
 
-        thr_qr_idx = np.argmax(a_s[4])
-        quality_qr_idx = np.argmax(a_s[5])
-        cores_qr_idx = np.argmax(a_s[6])
-
-        # Acción actual
+        # Current actions 
         action_cv = int(chosen_action_id[0])
         action_qr = int(chosen_action_id[1])
 
-        '''
-        # Predicción de throughput_cv (futuro) 
-        future_probs_cv = pymdp_agent.B[0][:, thr_cv_idx, quality_cv_idx, model_size_idx, cores_cv_idx, action_cv]
-        pred_thr_cv_idx = np.argmax(future_probs_cv)
-        pred_thr_cv_next_value = p_agent.throughput_cv[pred_thr_cv_idx]
-
-        # Predicción de throughput_qr (futuro) 
-        future_probs_qr = pymdp_agent.B[4][:, thr_qr_idx, quality_qr_idx, cores_qr_idx, action_qr]
-        pred_thr_qr_idx = np.argmax(future_probs_qr)
-        pred_thr_qr_next_value = p_agent.throughput_qr[pred_thr_qr_idx]
-        '''
-
-        # Normalizar los valores epistémico y pragmático
-        epistemic_weight = info_gain / (info_gain + pragmatic_value + 1e-8)
-        pragmatic_weight = pragmatic_value / (info_gain + pragmatic_value + 1e-8)
-
+        total = info_gain + pragmatic_value + 1e-8
+        epistemic_weight = info_gain / total
+        pragmatic_weight = pragmatic_value / total
+        
         # THROUGHPUT CV
-        future_probs_cv = pymdp_agent.B[0][:, thr_cv_idx, quality_cv_idx, model_size_idx, cores_cv_idx, action_cv]
-        # expected_thr_cv = np.sum(future_probs_cv * p_agent.throughput_cv)
-        expected_thr_cv = np.argmax(future_probs_cv)
+        future_probs_cv = pymdp_agent.B[0][:, thr_cv, quality_cv, model_size_cv, cores_cv, action_cv]
+        expected_thr_cv = p_agent.throughput_cv[np.argmax(future_probs_cv)]
 
         # THROUGHPUT QR
-        future_probs_qr = pymdp_agent.B[4][:, thr_qr_idx, quality_qr_idx, cores_qr_idx, action_qr]
-        # expected_thr_qr = np.sum(future_probs_qr * p_agent.throughput_qr)
-        expected_thr_qr = np.argmax(future_probs_qr)
+        future_probs_qr = pymdp_agent.B[4][:, thr_qr, quality_qr, cores_qr, action_qr]
+        expected_thr_qr = p_agent.throughput_qr[np.argmax(future_probs_qr)]
 
-        # Mezcla de predicción basada en valor pragmático y epistémico
-        pred_thr_cv_next_value = pragmatic_weight * expected_thr_cv + epistemic_weight * np.max(p_agent.throughput_cv)
-        pred_thr_qr_next_value = pragmatic_weight * expected_thr_qr + epistemic_weight * np.max(p_agent.throughput_qr)
+        # Prediction based on pragmatic and epistemic value
+        pred_thr_cv = pragmatic_weight * expected_thr_cv + epistemic_weight * np.max(p_agent.throughput_cv)
+        pred_thr_qr = pragmatic_weight * expected_thr_qr + epistemic_weight * np.max(p_agent.throughput_qr)
+
 
         action_cv = ESServiceAction(int(chosen_action_id[0]))
         action_qr = ESServiceAction(int(chosen_action_id[1]))
@@ -519,6 +502,9 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
 
         real_thr_cv = next_state_cv.throughput
         real_thr_qr = next_state_qr.throughput
+
+        rmse_thr_cv = np.sqrt((real_thr_cv - pred_thr_cv) ** 2)
+        rmse_thr_qr = np.sqrt((real_thr_qr - pred_thr_qr) ** 2)
 
         print("pymdp_state ACTUALIZADO: ", pymdp_state)
 
@@ -558,8 +544,10 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
             "elapsed": elapsed,
             "real_throughput_cv": real_thr_cv,
             "real_throughput_qr": real_thr_qr,
-            "predicted_throughput_cv": pred_thr_cv_next_value,
-            "predicted_throughput_qr": pred_thr_qr_next_value,
+            "predicted_throughput_cv": pred_thr_cv,
+            "predicted_throughput_qr": pred_thr_qr,
+            "rmse_throughput_cv": rmse_thr_cv,
+            "rmse_throughput_qr": rmse_thr_qr,
         })
         print(f"CV| {action_cv} --> {logged_data[-1]["next_state_cv"]}")
         print(f"QR| {action_qr} --> {logged_data[-1]["next_state_qr"]}")
@@ -567,11 +555,13 @@ def train_pymdp_agent(action_selection, alpha, motivate_cores):
 
 
 
-    save_agent_parameters(pymdp_agent, save_path="../experiments/opodis/saved_agent")
+    save_agent_parameters(pymdp_agent, save_path="D:/ADT_AIF/experiments/opodis/saved_agent")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = f"../experiments/opodis/{timestamp}_pymdp_service_log.csv"
+    log_path = f"D:/ADT_AIF/experiments/opodis/{timestamp}_pymdp_service_log.csv"
     df = pd.DataFrame(logged_data)
     df.to_csv(log_path, index=False, mode='a', header=not os.path.exists(log_path))
+
+        
 
     print("done")
 

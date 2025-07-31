@@ -31,6 +31,9 @@ class LGBN:
 
     # @utils.print_execution_time
     def predict_lgbn_vars(self, partial_state, service_type: ServiceType, sanitize=True):
+
+        np.random.seed(42)
+
         wrapped_in_list = {k: [v] for k, v in partial_state.items()}
         var, mean, vari = self.models[service_type].predict(pd.DataFrame(wrapped_in_list))
 
